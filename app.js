@@ -58,9 +58,9 @@ const screenConstraints = {
     video: {
         cursor: 'always',
         displaySurface: 'monitor',
-        frameRate: { ideal: 60, max: 60 },
-        width: { ideal: 1920, max: 2560 },
-        height: { ideal: 1080, max: 1440 }
+        frameRate: { ideal: 30, max: 60 },
+        width: { ideal: 1280, max: 1920 },
+        height: { ideal: 720, max: 1080 }
     },
     audio: {
         echoCancellation: true,
@@ -182,21 +182,21 @@ function initializeSocket() {
 function createPeerConnection() {
     peerConnection = new RTCPeerConnection(rtcConfig);
 
-    // Create data channel for remote control (viewer creates it)
-    if (role === 'viewer') {
+    // Create data channel for remote control (host creates it)
+    if (role === 'host') {
         dataChannel = peerConnection.createDataChannel('remoteControl', {
             ordered: false, // Allow out-of-order for lower latency
             maxRetransmits: 0 // Don't retransmit for real-time control
         });
         setupDataChannel(dataChannel);
-        console.log('📡 Data channel created by viewer');
+        console.log('📡 Data channel created by host');
     }
 
-    // Handle data channel from viewer (host receives it)
+    // Handle data channel from host (viewer receives it)
     peerConnection.ondatachannel = (event) => {
         dataChannel = event.channel;
         setupDataChannel(dataChannel);
-        console.log('📡 Data channel received by host');
+        console.log('📡 Data channel received by viewer');
     };
 
     // Add tracks from local stream (for host)
@@ -211,8 +211,9 @@ function createPeerConnection() {
                     parameters.encodings = [{}];
                 }
                 // Set parameters for low latency
-                parameters.encodings[0].maxBitrate = 10000000; // 10 Mbps
+                parameters.encodings[0].maxBitrate = 3000000; // 3 Mbps for stable connection
                 parameters.encodings[0].priority = 'high';
+                parameters.encodings[0].networkPriority = 'high';
                 sender.setParameters(parameters);
             }
         });
@@ -344,8 +345,8 @@ async function handleIceCandidate(candidate) {
  */
 function optimizeSDPForLatency(sdp) {
     try {
-        // Set maximum bitrate for better quality
-        let modifiedSdp = sdp.replace(/a=fmtp:(\d+) /g, 'a=fmtp:$1 x-google-max-bitrate=10000;x-google-min-bitrate=2000;x-google-start-bitrate=5000;');
+        // Set moderate bitrate for stable connection
+        let modifiedSdp = sdp.replace(/a=fmtp:(\d+) /g, 'a=fmtp:$1 x-google-max-bitrate=3000;x-google-min-bitrate=500;x-google-start-bitrate=1500;');
         
         // Enable hardware acceleration hints for H264
         modifiedSdp = modifiedSdp.replace(/a=rtpmap:(\d+) H264/g, 'a=rtpmap:$1 H264\r\na=fmtp:$1 profile-level-id=42e01f;level-asymmetry-allowed=1;packetization-mode=1');

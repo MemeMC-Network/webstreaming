@@ -144,9 +144,12 @@ module.exports = (req, res) => {
     }, 5 * 60 * 1000);
 
     res.socket.server.io = io;
+  } else {
+    io = res.socket.server.io;
   }
   
-  res.end();
+  // Don't end the response - let Socket.IO handle it
+  io.engine.handleRequest(req, res);
 };
 
 /**
