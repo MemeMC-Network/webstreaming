@@ -138,7 +138,16 @@ function initializeSocket() {
         console.log(`👁️ Viewer joined: ${viewerId}`);
         remotePeerId = viewerId;
         showStatusMessage('Viewer connected! Creating peer connection...', 'info');
-        await createOffer(viewerId);
+        
+        // Small delay to ensure both sides are ready
+        setTimeout(async () => {
+            try {
+                await createOffer(viewerId);
+            } catch (error) {
+                console.error('Error creating offer:', error);
+                showStatusMessage('Failed to create connection', 'error');
+            }
+        }, 500);
     });
 
     socket.on('offer', async (data) => {
@@ -248,6 +257,13 @@ function createPeerConnection() {
             isConnected = true;
             updateConnectionStatus('connected', `Connected to ${currentCode}`);
             showStatusMessage('Successfully connected!', 'success');
+            
+            // Reset button state for viewer
+            if (role === 'viewer') {
+                connectBtn.disabled = false;
+                connectBtn.innerHTML = '<span class="btn-icon">🔗</span>Connect';
+            }
+            
             startStatsMonitoring();
         } else if (peerConnection.connectionState === 'disconnected' || 
                    peerConnection.connectionState === 'failed') {
@@ -400,11 +416,211 @@ function displayRemoteStream() {
         });
         
         screenDisplay.appendChild(controlToggle);
+        
+        // Create virtual control panel
+        const controlPanel = createVirtualControlPanel();
+        screenDisplay.appendChild(controlPanel);
     }
     
     screenDisplay.appendChild(videoElement);
     screenDisplay.appendChild(statsDiv);
     screenControls.style.display = 'flex';
+}
+
+/**
+ * Create virtual control panel with keyboard and mouse buttons
+ */
+function createVirtualControlPanel() {
+    const panel = document.createElement('div');
+    panel.id = 'virtualControlPanel';
+    panel.style.cssText = `
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.85);
+        padding: 15px;
+        border-radius: 12px;
+        display: none;
+        flex-direction: column;
+        gap: 10px;
+        z-index: 1000;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    `;
+    
+    // Title
+    const title = document.createElement('div');
+    title.textContent = 'Virtual Controls';
+    title.style.cssText = 'color: white; font-weight: 600; text-align: center; margin-bottom: 5px; font-size: 14px;';
+    panel.appendChild(title);
+    
+    // Mouse buttons row
+    const mouseRow = document.createElement('div');
+    mouseRow.style.cssText = 'display: flex; gap: 8px; justify-content: center;';
+    
+    const leftClick = createControlButton('Left Click', () => sendVirtualMouseClick(0));
+    const rightClick = createControlButton('Right Click', () => sendVirtualMouseClick(2));
+    const middleClick = createControlButton('Middle Click', () => sendVirtualMouseClick(1));
+    
+    mouseRow.appendChild(leftClick);
+    mouseRow.appendChild(middleClick);
+    mouseRow.appendChild(rightClick);
+    panel.appendChild(mouseRow);
+    
+    // Special keys row 1
+    const keysRow1 = document.createElement('div');
+    keysRow1.style.cssText = 'display: flex; gap: 5px; justify-content: center; flex-wrap: wrap;';
+    
+    ['Enter', 'Esc', 'Tab', 'Backspace'].forEach(key => {
+        keysRow1.appendChild(createControlButton(key, () => sendVirtualKey(key)));
+    });
+    panel.appendChild(keysRow1);
+    
+    // Special keys row 2
+    const keysRow2 = document.createElement('div');
+    keysRow2.style.cssText = 'display: flex; gap: 5px; justify-content: center; flex-wrap: wrap;';
+    
+    ['Ctrl', 'Alt', 'Shift', 'Win'].forEach(key => {
+        keysRow2.appendChild(createControlButton(key, () => sendVirtualKey(key)));
+    });
+    panel.appendChild(keysRow2);
+    
+    // Function keys row
+    const funcRow = document.createElement('div');
+    funcRow.style.cssText = 'display: flex; gap: 5px; justify-content: center; flex-wrap: wrap;';
+    
+    for (let i = 1; i <= 12; i++) {
+        funcRow.appendChild(createControlButton(`F${i}`, () => sendVirtualKey(`F${i}`), true));
+    }
+    panel.appendChild(funcRow);
+    
+    // Arrow keys
+    const arrowContainer = document.createElement('div');
+    arrowContainer.style.cssText = 'display: flex; flex-direction: column; align-items: center; gap: 5px; margin-top: 5px;';
+    
+    const arrowUp = createControlButton('↑', () => sendVirtualKey('ArrowUp'));
+    const arrowMiddleRow = document.createElement('div');
+    arrowMiddleRow.style.cssText = 'display: flex; gap: 5px;';
+    const arrowLeft = createControlButton('←', () => sendVirtualKey('ArrowLeft'));
+    const arrowDown = createControlButton('↓', () => sendVirtualKey('ArrowDown'));
+    const arrowRight = createControlButton('→', () => sendVirtualKey('ArrowRight'));
+    
+    arrowMiddleRow.appendChild(arrowLeft);
+    arrowMiddleRow.appendChild(arrowDown);
+    arrowMiddleRow.appendChild(arrowRight);
+    
+    arrowContainer.appendChild(arrowUp);
+    arrowContainer.appendChild(arrowMiddleRow);
+    panel.appendChild(arrowContainer);
+    
+    return panel;
+}
+
+/**
+ * Create a control button
+ */
+function createControlButton(label, onClick, small = false) {
+    const button = document.createElement('button');
+    button.textContent = label;
+    button.style.cssText = `
+        background: rgba(74, 144, 226, 0.9);
+        color: white;
+        border: none;
+        padding: ${small ? '6px 10px' : '8px 12px'};
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: ${small ? '11px' : '13px'};
+        font-weight: 600;
+        transition: all 0.2s;
+        white-space: nowrap;
+    `;
+    
+    button.addEventListener('mouseenter', () => {
+        button.style.background = 'rgba(52, 152, 219, 1)';
+        button.style.transform = 'scale(1.05)';
+    });
+    
+    button.addEventListener('mouseleave', () => {
+        button.style.background = 'rgba(74, 144, 226, 0.9)';
+        button.style.transform = 'scale(1)';
+    });
+    
+    button.addEventListener('mousedown', () => {
+        button.style.transform = 'scale(0.95)';
+    });
+    
+    button.addEventListener('mouseup', () => {
+        button.style.transform = 'scale(1.05)';
+    });
+    
+    button.addEventListener('click', onClick);
+    
+    return button;
+}
+
+/**
+ * Send virtual mouse click
+ */
+function sendVirtualMouseClick(button) {
+    if (!dataChannel || dataChannel.readyState !== 'open') {
+        showStatusMessage('Remote control not connected', 'error');
+        return;
+    }
+    
+    const videoElement = document.getElementById('remoteVideo');
+    if (!videoElement) return;
+    
+    const rect = videoElement.getBoundingClientRect();
+    const x = rect.width / 2;
+    const y = rect.height / 2;
+    
+    // Send mousedown
+    sendControlEventImmediate({
+        type: 'mousedown',
+        button: button,
+        x: x / rect.width,
+        y: y / rect.height
+    });
+    
+    // Send mouseup after short delay
+    setTimeout(() => {
+        sendControlEventImmediate({
+            type: 'mouseup',
+            button: button,
+            x: x / rect.width,
+            y: y / rect.height
+        });
+    }, 100);
+    
+    showStatusMessage(`Sent ${button === 0 ? 'left' : button === 2 ? 'right' : 'middle'} click`, 'success');
+}
+
+/**
+ * Send virtual key press
+ */
+function sendVirtualKey(key) {
+    if (!dataChannel || dataChannel.readyState !== 'open') {
+        showStatusMessage('Remote control not connected', 'error');
+        return;
+    }
+    
+    // Send keydown
+    sendControlEventImmediate({
+        type: 'keydown',
+        key: key,
+        code: key
+    });
+    
+    // Send keyup after short delay
+    setTimeout(() => {
+        sendControlEventImmediate({
+            type: 'keyup',
+            key: key,
+            code: key
+        });
+    }, 100);
+    
+    showStatusMessage(`Sent key: ${key}`, 'success');
 }
 
 /**
@@ -535,16 +751,28 @@ function toggleRemoteControl(enabled) {
     remoteControlEnabled = enabled;
     
     const videoElement = document.getElementById('remoteVideo');
+    const controlPanel = document.getElementById('virtualControlPanel');
+    
     if (!videoElement) return;
     
     if (enabled) {
+        // Show virtual control panel
+        if (controlPanel) {
+            controlPanel.style.display = 'flex';
+        }
+        
         // Start capturing input events
         startEventBatching();
         attachInputEventListeners(videoElement);
-        videoElement.style.cursor = 'none'; // Hide cursor for custom rendering
-        showStatusMessage('🎮 Remote control enabled', 'success');
+        videoElement.style.cursor = 'crosshair'; // Show crosshair for aiming
+        showStatusMessage('🎮 Remote control enabled - Click video to control, use panel for special keys', 'success');
         console.log('🎮 Remote control enabled');
     } else {
+        // Hide virtual control panel
+        if (controlPanel) {
+            controlPanel.style.display = 'none';
+        }
+        
         // Stop capturing input events
         stopEventBatching();
         detachInputEventListeners(videoElement);
@@ -863,13 +1091,26 @@ async function connectAsViewer(code) {
         updateConnectionStatus('connecting', 'Connecting to host...');
         showStatusMessage('Connecting to remote screen...', 'info');
         
+        // Set a timeout for connection
+        const connectionTimeout = setTimeout(() => {
+            if (!isConnected) {
+                console.error('Connection timeout');
+                showStatusMessage('Connection timeout. Host may not be available.', 'error');
+                connectBtn.disabled = false;
+                connectBtn.innerHTML = '<span class="btn-icon">🔗</span>Connect';
+                disconnectFromRemote();
+            }
+        }, 30000); // 30 second timeout
+        
         socket.emit('join-room', code, (response) => {
             if (response.success) {
-                console.log(`✅ Joined room ${code}, waiting for stream...`);
+                console.log(`✅ Joined room ${code}, host is ${response.hostId}`);
+                console.log('Waiting for offer from host...');
                 remotePeerId = response.hostId;
-                showStatusMessage('Connected! Waiting for video stream...', 'success');
-                // Wait for host to send offer
+                showStatusMessage('Joined room! Waiting for host to start connection...', 'success');
+                // The offer will come via 'offer' event handler
             } else {
+                clearTimeout(connectionTimeout);
                 console.error('Failed to join room:', response.message);
                 showStatusMessage(response.message || 'Failed to connect', 'error');
                 connectBtn.disabled = false;
@@ -880,7 +1121,7 @@ async function connectAsViewer(code) {
         
     } catch (error) {
         console.error('Error connecting:', error);
-        showStatusMessage('Connection failed', 'error');
+        showStatusMessage('Connection failed: ' + error.message, 'error');
         connectBtn.disabled = false;
         connectBtn.innerHTML = '<span class="btn-icon">🔗</span>Connect';
         disconnectFromRemote();
