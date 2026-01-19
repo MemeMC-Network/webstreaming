@@ -267,8 +267,8 @@ async function createOffer(viewerId) {
         createPeerConnection();
         
         const offer = await peerConnection.createOffer({
-            offerToReceiveAudio: false,
-            offerToReceiveVideo: false
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true
         });
 
         // Modify SDP for lower latency
@@ -867,9 +867,13 @@ async function connectAsViewer(code) {
             if (response.success) {
                 console.log(`✅ Joined room ${code}, waiting for stream...`);
                 remotePeerId = response.hostId;
+                showStatusMessage('Connected! Waiting for video stream...', 'success');
                 // Wait for host to send offer
             } else {
-                showStatusMessage(response.message, 'error');
+                console.error('Failed to join room:', response.message);
+                showStatusMessage(response.message || 'Failed to connect', 'error');
+                connectBtn.disabled = false;
+                connectBtn.innerHTML = '<span class="btn-icon">🔗</span>Connect';
                 disconnectFromRemote();
             }
         });
@@ -877,6 +881,8 @@ async function connectAsViewer(code) {
     } catch (error) {
         console.error('Error connecting:', error);
         showStatusMessage('Connection failed', 'error');
+        connectBtn.disabled = false;
+        connectBtn.innerHTML = '<span class="btn-icon">🔗</span>Connect';
         disconnectFromRemote();
     }
 }
