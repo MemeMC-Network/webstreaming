@@ -110,6 +110,15 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Check if Socket.IO loaded properly
+        if (typeof io === 'undefined') {
+            console.error('❌ Socket.IO client library failed to load!');
+            alert('Failed to load Socket.IO. Please refresh the page.');
+        } else {
+            console.log('✅ Socket.IO client library loaded successfully');
+        }
+    </script>
     <script src="app.js"></script>
 </body>
 </html>

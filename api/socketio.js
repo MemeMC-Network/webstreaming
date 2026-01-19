@@ -9,24 +9,31 @@ const { Server } = require('socket.io');
 const rooms = new Map();
 const peers = new Map();
 
+let io;
+
 module.exports = (req, res) => {
   if (!res.socket.server.io) {
     console.log('Initializing Socket.IO server...');
     
-    const io = new Server(res.socket.server, {
+    io = new Server(res.socket.server, {
       path: '/socket.io',
       addTrailingSlash: false,
       cors: {
         origin: '*',
-        methods: ['GET', 'POST']
+        methods: ['GET', 'POST'],
+        credentials: true
       },
-      transports: ['websocket', 'polling'],
-      // Optimize for low latency
+      transports: ['polling', 'websocket'],
+      allowEIO3: true,
+      // Optimize for Vercel serverless
       pingTimeout: 60000,
       pingInterval: 25000,
       upgradeTimeout: 30000,
-      maxHttpBufferSize: 1e8, // 100 MB for high-quality streams
-      perMessageDeflate: false // Disable compression for lower latency
+      maxHttpBufferSize: 1e8,
+      perMessageDeflate: false,
+      // Important for serverless
+      connectTimeout: 45000,
+      httpCompression: false
     });
 
     io.on('connection', (socket) => {

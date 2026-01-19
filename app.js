@@ -87,23 +87,51 @@ const remoteControlConfig = {
 function initializeSocket() {
     // Connect to Socket.IO server (works for both local and Vercel)
     const socketURL = window.location.origin;
+    
+    console.log('🔌 Connecting to Socket.IO server at:', socketURL);
+    
     socket = io(socketURL, {
         path: '/socket.io',
-        transports: ['websocket', 'polling'],
+        transports: ['polling', 'websocket'],
         reconnection: true,
         reconnectionDelay: 1000,
-        reconnectionAttempts: 5
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 10,
+        timeout: 20000,
+        autoConnect: true,
+        forceNew: false
     });
 
     socket.on('connect', () => {
         console.log('✅ Connected to signaling server');
+        console.log('Socket ID:', socket.id);
+        showStatusMessage('Connected to server', 'success');
     });
 
-    socket.on('disconnect', () => {
-        console.log('❌ Disconnected from signaling server');
+    socket.on('connect_error', (error) => {
+        console.error('❌ Connection error:', error);
+        showStatusMessage('Failed to connect to server. Retrying...', 'error');
+    });
+
+    socket.on('disconnect', (reason) => {
+        console.log('❌ Disconnected from signaling server. Reason:', reason);
         if (isConnected) {
             showStatusMessage('Connection to server lost', 'error');
         }
+    });
+
+    socket.on('reconnect', (attemptNumber) => {
+        console.log('✅ Reconnected after', attemptNumber, 'attempts');
+        showStatusMessage('Reconnected to server', 'success');
+    });
+
+    socket.on('reconnect_attempt', (attemptNumber) => {
+        console.log('🔄 Reconnection attempt', attemptNumber);
+    });
+
+    socket.on('reconnect_failed', () => {
+        console.error('❌ Failed to reconnect to server');
+        showStatusMessage('Could not reconnect to server', 'error');
     });
 
     socket.on('viewer-joined', async (viewerId) => {
